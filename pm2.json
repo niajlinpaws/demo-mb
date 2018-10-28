@@ -1,0 +1,11 @@
+{
+    "apps" : [{
+    "name"        : "mast",
+    "script"      : "app.js",
+    "watch"       : true,
+    "env": {
+        "DF_PROJECT_ID":"maast-wip",
+        "DF_SERVICE_ACCOUNT_PATH":"mast.json"
+    }
+}]
+}

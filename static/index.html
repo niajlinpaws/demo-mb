@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+
+
+    
+<!-- Dialog flow bot widget start -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+    iframe {
+        border: none;
+        height: 300px;
+
+    }
+
+    .page-container {
+        position: fixed;
+        width: 99%;
+        border: 1px solid #eeeeee;
+        bottom: 0;
+        right: 0;
+    }
+
+    .header {
+        position: relative;
+        width: -webkit-fill-available;
+        background-color: #529ed0;
+        font-weight: bold;
+        color: white;
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    .minimize-image {
+        position: absolute;
+        cursor: pointer;
+        top: 5px;
+        right: 20px;
+        width: 20px;
+        height: 20px;
+    }
+
+    .showWidget {
+        display: none;
+    }
+
+</style>
+
+<div class="page-container">
+    <header class="header">
+        Need help?
+        <i onclick="toggleWidget()" id="chat-window-icon" class="fa fa-caret-down minimize-image fa-2x"></i>
+        <!--<img onclick="toggleWidget()" id="minimize-image" class="minimize-image" -->
+        <!--src="down_arrow" />-->
+    </header>
+    <iframe id="widget-iframe" src="./customer"
+            width="100%" frameborder="0">
+    </iframe>
+</div>
+
+<script type="text/javascript">
+    function toggleWidget() {
+        var element = document.getElementById('widget-iframe');
+        element.classList.toggle("showWidget");
+        var caret_icon = document.getElementById('chat-window-icon');
+        //alert("arrow is" + img_element.src);
+        if (caret_icon.classList.contains("fa-caret-down")) {
+            caret_icon.classList.remove("fa-caret-down");
+            caret_icon.classList.add("fa-caret-up");
+        } else {
+            caret_icon.classList.remove("fa-caret-up");
+            caret_icon.classList.add("fa-caret-down");
+        }
+
+    }
+</script>
+
+<!-- Dialog flow bot  widget end -->
+</body>
+
+</html>

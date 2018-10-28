@@ -1,0 +1,22 @@
+{
+  "name": "agent-human-handoff-sample",
+  "version": "0.0.1",
+  "description": "Code sample for agent-human handoff with Dialogflow",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Google Inc.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "compression": "^1.7.3",
+    "cors": "^2.8.4",
+    "dialogflow": "^0.5.0",
+    "dotenv-safe": "^6.0.0",
+    "express": "^4.15.3",
+    "helmet": "^3.13.0",
+    "mongoose": "^5.3.2",
+    "morgan": "^1.9.1",
+    "socket.io": "^2.1.1"
+  }
+}

@@ -1,0 +1,459 @@
+<!doctype html>
+<!--
+Copyright 2017, Google, Inc.
+Licensed under the Apache License, Version 2.0 (the 'License');
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an 'AS IS' BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+
+
+<head>
+    <title>Buddy Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        #close {
+            cursor: pointer;
+            position: absolute;
+            top: 50%;
+            right: 0%;
+            padding: 12px 16px;
+            transform: translate(0%, -50%);
+            color: black;
+        }
+
+        .close:hover {
+            background: #bbb;
+            cursor: pointer;
+        }
+
+        body {
+            font: 13px Helvetica, Arial;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px;
+        }
+
+        form {
+            background: #000;
+            padding: 3px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+
+        /*form input {
+            border: 0;
+            padding: 10px;
+            width: 90%;
+            margin-right: .5%;
+        }*/
+
+        /*form button {
+            width: 10%;
+            background: rgb(130, 224, 255);
+            border: none;
+            padding: 10px;
+        }*/
+
+        .input_send_button {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #333333;
+        }
+
+        .input_li {
+            float: left;
+            width: 90%;
+            padding: 10px;
+        }
+
+        .button_li {
+            float: right;
+            width: 10%;
+            background: rgb(130, 224, 255);
+            border: none;
+            padding: 10px;
+        }
+
+        #chatTabs {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #chatTabs li.chat-tab {
+            padding: 5px;
+            float: left;
+            border: 1px solid black;
+            border-radius: 10px 10px 0 0;
+            cursor: default;
+        }
+
+        #chatTabs li.chat-tab.selected {
+            font-weight: bold;
+            color: white;
+            background-color: black;
+        }
+
+        #chatTabs li.chat-tab.unselected {
+            font-weight: bold;
+            color: black;
+            background-color: white;
+        }
+
+        #chatTabs li.chat-tab.new_message {
+            font-weight: bold;
+            color: white;
+            background-color: blue;
+        }
+
+        #chatWindows {
+            clear: left;
+            border-top: 1px solid black;
+        }
+
+        ul.chat-window {
+            overflow: scroll;
+            height: 75vh;
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        ul.chat-window li {
+            padding: 5px 10px;
+        }
+
+        ul.chat-window li.operator-message {
+            color: blue;
+        }
+
+        ul.chat-window li.operator-error {
+            color: red;
+        }
+
+        ul.chat-window li.operator-message::before {
+            content: "> "
+        }
+
+        ul.chat-window li.customer-message {
+        }
+
+        ul.chat-window li.agent-response {
+            font-style: italic;
+        }
+
+        ul.chat-window li:nth-child(odd) {
+            background: #eee;
+        }
+    </style>
+</head>
+
+<body>
+<p align = "center"> ~~~~~~~~~~~~~~~~~~~~~ Mast Buddy Interface ~~~~~~~~~~~~~~~~~~~~~ </p>
+<audio id="attention" src="attention.ogg" preload="auto"></audio>
+<ul id="chatTabs">
+</ul>
+<div id="chatWindows">
+</div>
+<div>
+    <form>
+    <ul class="input_send_button">
+        <li><input class="input_li" id="m" autocomplete="off"/></li>
+        <li><button class="button_li">Send</button></li>
+    </ul>
+</form>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"
+        integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+        crossorigin="anonymous"></script>
+<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script> -->
+<script>
+
+
+    function hide(hideTab) {
+        hideTab.parentNode.style.display = 'none';
+    }
+
+
+    $(function () {
+
+        var socket = io('/operator');
+
+        // UI elements for all the customers we currently aware of
+        var connectedCustomers = {};
+        // Pointer to the currently open tab
+        var currentTab;
+        var customerID;
+
+        // The format we use to communicate a message to a specific customer
+        var messageObject = function (customerId, utterance) {
+            return {customerId: customerId, utterance: utterance};
+        };
+
+        // When the form is submitted, send an operator message to the server, referencing
+        // the current tab's customer
+        $('form').submit(function () {
+	    	if (currentTab.disconnected) {
+                //console.log(currentTab.customerId,'This customer might have disconnected... he may or may not get your new message');
+                //commenting this out as, as on refresh the same user can be reached again
+                //TODO: ideally that customer should have been in the connected state...
+                //return false;
+            }
+            try {
+				var messageText = $('#m').val();
+				socket.emit('operator message', messageObject(currentTab.customerId, messageText));
+				$('#m').val('');
+				return false;
+			} catch(err){
+				console.log(err)
+			  }
+        });
+
+
+        // Switch to a different tab
+        var setCurrentTab = function (target, requestedOperator, tabClicked) {
+            //console.log("CloseListener", "CLOSE");
+            // Do nothing if this is already the current tab
+
+            var className = $('li.chat-tab').attr('class');
+            console.log("ClassName ", className);
+
+            var value = target.tab.text();
+            value = value.replace("  X  ", "");
+            if (currentTab === target) {
+                console.log("ValueChatTab", value);
+                if (requestedOperator) {
+                    if (value.indexOf("Help__") >= 0 || value.indexOf("Help__" + value) >= 0) {
+                        //do nothing
+                    } else
+                        target.tab.text("Help__" + value);
+                }
+                target.tab.removeClass('new_message');
+                //target.tab.append('<span class="close" onclick="hide(this)">  X  </span></li>');
+                return;
+            }
+
+            if (tabClicked) {
+                console.log("TabClicked", "TabClicked");
+            }
+            target.tab.removeClass('new_message');
+            // Set the current tab
+            currentTab = target;
+            // Remove any other selected tab
+
+            /*for(let key in connectedCustomers){
+                connectedCustomers[key].tab.removeClass('new_message');
+            }*/
+
+            $('li.chat-tab').removeClass('selected');
+            var value = target.tab.text();
+            value = value.replace("  X  ", "");
+            if (requestedOperator) {
+                if (value.indexOf("Help__") >= 0 || value.indexOf("Help__" + value) >= 0) {
+                    // do nothing
+                } else
+                    target.tab.text("Help__" + value);
+
+                target.tab.append('<span class="close" onclick="hide(this)">  X  </span></li>');
+            }
+
+            // Mark this tab as selected
+            target.tab.addClass('selected');
+            // Hide any other chat windows
+            $('.chat-window').hide();
+            // Show this chat window
+            target.window.show();
+        };
+
+        //change tab color to blue for recieved message
+        var changeColor = function (target) {
+        	if(target.tab.text().indexOf("Help__") >= 0){
+	            target.tab.addClass('new_message');
+	            //this is to unhide the tab to which new messages have come, in case it is in the hidden state
+				//just by stating tab.style it was not working so added tab[0]
+	            target.tab[0].style.display = "block";
+	        }
+        };
+
+
+        // Create a set of UI elements for a new customer tab.
+        // The customerId is the ID used internally by for websocket communication.
+        // In your implementation, you could replace this with the customer's name
+        // after fetching it from your datastore.
+
+
+        var createNewCustomerTab = function (customerId) {
+        
+        
+        	//Changes to ensure same tab opens for the same user
+            // return if customer is already connected
+           if (connectedCustomers[customerId])
+               return;
+		
+            //alert("My customerId is:" + customerId);  
+            var time = new Date();
+            var newChatElements = {};
+            newChatElements.customerId = customerId;
+            // newChatElements.customerId = time.getHours()+":"+time.getMinutes()+":"+time.getSeconds();
+            // A tab displaying the customer id
+            //newChatElements.tab = $('<li class="chat-tab">').text(customerId);
+
+            var closebtns = '<span class="close" onclick="hide(this)">  X  </span></li>';
+            //newChatElements.tab = $('<li class="chat-tab">' + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds() + closebtns);
+            newChatElements.tab = $('<li class="chat-tab">' + customerId + closebtns);
+            // The chat log for this customer
+            newChatElements.window = $('<ul class="chat-window">').hide();
+
+            var clickHandler = function () {
+                setCurrentTab(newChatElements, false, true);
+            };
+
+            newChatElements.tab.click(clickHandler);
+
+            connectedCustomers[customerId] = newChatElements;
+
+            if (!currentTab) {
+                console.log('Setting current tab');
+                clickHandler();
+            }
+
+            $('#chatTabs').append(newChatElements.tab);
+            $('#chatWindows').append(newChatElements.window);
+        };
+
+        // Notify the operator that a customer has requested them
+        var notifyOperatorRequest = function (customerId) {
+            if (!connectedCustomers[customerId]) {
+                console.log('Received operator request from unknown customer id: ' + customerId);
+                return;
+            }
+            setCurrentTab(connectedCustomers[customerId], true, false);
+            document.getElementById('attention').play();
+            alert('Operator requested!');
+            
+        };
+
+        // Notify the operator that a customer has disconnected
+        var notifyCustomerDisconnected = function (customerId) {
+            if (!connectedCustomers[customerId]) {
+                console.log('Received disconnect notification for unknown customer id: ' + customerId);
+                return;
+            }
+            var currentTime = new Date();
+        	var disconnectionMessage = "DC at: [" + currentTime.getHours() + ":" + currentTime.getMinutes() + ":" + currentTime.getSeconds() + "]";
+
+            connectedCustomers[customerId].disconnected = true;
+            connectedCustomers[customerId]
+                .window
+                .append($('<li class="customer-message">')
+                    .text(disconnectionMessage));
+
+        };
+
+        // Notify the operator of a system error
+        var notifySystemError = function (error) {
+            var errorText;
+            // If we get this custom error type, the error was due to an operator mistake; display it
+            // in a friendlier manner (without the word 'Error')
+            if (error.type === 'CustomerModeError') {
+                errorText = error.message;
+                // Otherwise, print the error type and message
+            } else {
+                errorText = error.type + ' - ' + error.message;
+            }
+            console.log(errorText);
+            if (!currentTab) return;
+            currentTab.window.append($('<li class="operator-error">').text(errorText));
+        };
+
+        // Display messages sent by any operator to the customers this operator knows about
+        var receivedOperatorMessage = function (msg) {
+            var customer = connectedCustomers[msg.customerId];
+            if (!customer) {
+                console.log('Received operator message to unknown customer id: ' + JSON.stringify(msg));
+                return;
+            }
+        	var currentTime = new Date();
+        	msg.utterance = "[" + currentTime.getHours() + ":" + currentTime.getMinutes() + ":" + currentTime.getSeconds() + "] :" + msg.utterance;
+
+            customer.window
+                .append($('<li class="operator-message">').text(msg.utterance));
+        };
+
+        // Display messages sent by customers
+        var receivedCustomerMessage = function (msg) {
+            if (!connectedCustomers[msg.customerId]) {
+                console.log('Received message for unknown customer id: ' + JSON.stringify(msg));
+                return;
+            }
+
+        	var currentTime = new Date();
+            var prefix1 = "[" + currentTime.getHours() + ":" 
+            + currentTime.getMinutes() + ":" + currentTime.getSeconds() + "] ";
+
+            // If your implementation has access to the customer's name,
+            // you can modify the next line to display it in the prefix.
+
+          //console.log("AllJsonValue ", msg.utterance.queryResult.fulfillmentText);
+          var obj = JSON.stringify(msg.utterance);
+          var json = JSON.parse(obj);
+          //console.log("AllJsonValue ", json);
+          var chatMessage =  '';
+
+
+            var prefix2 = msg.isAgentResponse ? 'Bot     : ' : 'Customer: ';
+            if(prefix2.includes('Bot')){
+                chatMessage =  json.queryResult.fulfillmentText
+            } else {
+                chatMessage = msg.utterance;
+            }
+            connectedCustomers[msg.customerId]
+                .window
+                .append($('<li class="customer-message">')
+                    .toggleClass('agent-response', msg.isAgentResponse)
+                    .text(prefix1 + prefix2 + chatMessage));
+
+            /*for(let key in connectedCustomers){
+                connectedCustomers[key].tab.removeClass('new_message');
+            }
+*/
+
+            changeColor(connectedCustomers[msg.customerId]);
+            document.getElementById('chatWindows').scrollTop = document.getElementById('chatWindows').scrollHeight;
+        };
+
+        // Attach all our event handlers
+        socket.on('customer connected', createNewCustomerTab);
+        socket.on('customer message', receivedCustomerMessage);
+        socket.on('operator requested', notifyOperatorRequest);
+        //socket.on('operator requested', createNewCustomerTab);
+        socket.on('operator message', receivedOperatorMessage);
+        socket.on('customer disconnected', notifyCustomerDisconnected);
+        socket.on('system error', notifySystemError);
+
+    });
+</script>
+</body>
+
+</html>
